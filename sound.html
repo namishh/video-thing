@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Transcoder</title>
+</head>
+<body>
+    <h1>Video Transcoder</h1>
+
+    <input type="file" id="fileInput" accept="*">
+
+    <select id="codec">
+        <option value="video/webm;codecs=vp8">VP8</option>
+        <option value="video/webm;codecs=vp9">VP9</option>
+    </select>
+
+    <button id="convertBtn" disabled>Convert</button>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const codec = document.getElementById('codec');
+        const convertBtn = document.getElementById('convertBtn');
+        let file = null;
+
+        fileInput.addEventListener('change', (e) => {
+            file = e.target.files[0];
+            convertBtn.disabled = !file;
+        });
+
+        convertBtn.addEventListener('click', () => {
+            if (!file) return;
+
+            const selectedCodec = codec.value;
+            const exts = { 'video/webm;codecs=vp8': 'webm', 'video/webm;codecs=vp9': 'webm' };
+            const ext = exts[selectedCodec];
+
+            convertBtn.disabled = true;
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const stream = canvas.captureStream();
+
+            const audioContext = new AudioContext();
+            const mediaStreamDestination = audioContext.createMediaStreamDestination();
+            stream.addTrack(mediaStreamDestination.stream.getAudioTracks()[0]);
+
+            const recorder = new MediaRecorder(stream, { mimeType: selectedCodec });
+            const chunks = [];
+
+            recorder.ondataavailable = (e) => chunks.push(e.data);
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: selectedCodec });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `download.${ext}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                convertBtn.disabled = false;
+            };
+
+            const video = document.createElement('video');
+            video.src = URL.createObjectURL(file);
+
+            video.onloadedmetadata = () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                const source = audioContext.createMediaElementSource(video);
+                source.connect(mediaStreamDestination);
+
+                recorder.start();
+                video.play();
+
+                const drawFrame = (time, metadata) => {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    if (!video.paused && !video.ended) {
+                        video.requestVideoFrameCallback(drawFrame);
+                    }
+                };
+
+                video.requestVideoFrameCallback(drawFrame);
+            };
+
+            video.onended = () => {
+              recorder.stop();
+            };
+        });
+    </script>
+</body>
+</html>
