@@ -19,18 +19,18 @@
         const codecSelect = document.getElementById('codec');
         const convertBtn = document.getElementById('convertBtn');
         let selectedFile = null;
-
         fileInput.addEventListener('change', (e) => {
             selectedFile = e.target.files[0];
             convertBtn.disabled = !selectedFile;
         });
-
         convertBtn.addEventListener('click', () => {
             if (!selectedFile) return;
+            convertBtn.disabled = true;
             const selectedCodec = codecSelect.value;
 
             const video = document.createElement('video');
             video.src = URL.createObjectURL(selectedFile);
+            video.volume = 0;
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             const chunks = [];
