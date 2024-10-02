@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>yacine</title>
+</head>
+<body>
+    <h1>Video Transcoder</h1>
+    <input type="file" id="fileInput" accept="video/*">
+    <select id="codec">
+        <option value="video/mp4;codecs=avc1.42E01E">MP4</option>
+        <option value="video/webm;codecs=vp8">VP8</option>
+        <option value="video/webm;codecs=vp9">VP9</option>
+    </select>
+    <button id="convertBtn" disabled>Convert</button>
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const codecSelect = document.getElementById('codec');
+        const convertBtn = document.getElementById('convertBtn');
+        let selectedFile = null;
+
+        fileInput.addEventListener('change', (e) => {
+            selectedFile = e.target.files[0];
+            convertBtn.disabled = !selectedFile;
+        });
+
+        convertBtn.addEventListener('click', () => {
+            if (!selectedFile) return;
+            const selectedCodec = codecSelect.value;
+
+            const video = document.createElement('video');
+            video.src = URL.createObjectURL(selectedFile);
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const chunks = [];
+
+            video.onloadedmetadata = () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                const fps = video.getVideoPlaybackQuality().totalVideoFrames / video.duration || 30; 
+                const stream = canvas.captureStream(fps);
+
+                const recorder = new MediaRecorder(stream, { mimeType: selectedCodec });
+                recorder.ondataavailable = (e) => chunks.push(e.data);
+                recorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: selectedCodec });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${selectedFile.name.split('.')[0]}_converted.${selectedCodec.includes('mp4') ? 'mp4' : 'webm'}`;
+                    a.click();
+                    convertBtn.disabled = false;
+                };
+
+                recorder.start();
+                video.play();
+                const draw = () => {
+                    ctx.drawImage(video, 0, 0);
+                    if (!video.paused && !video.ended) requestAnimationFrame(draw);
+                };
+                draw();
+                video.onended = () => recorder.stop();
+            };
+        });
+    </script>
+</body>
+</html>
